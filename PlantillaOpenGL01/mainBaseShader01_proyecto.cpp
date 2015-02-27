@@ -1,28 +1,26 @@
-// Cubica
-
-#include <stdlib.h>
 #include <conio.h>
-
+#include <stdlib.h>
+#include <iostream>
 #include <GL\glew.h>
 #include <GL\freeglut.h>
-#include <iostream>
-#include "glsl.h"
-
 // assimp include files. These three are usually needed.
-#include <assimp/cimport.h>
 #include <assimp/scene.h>
+#include <assimp/cimport.h>
 #include <assimp/postprocess.h>
-
-// the global Assimp scene object
-const aiScene* scene = NULL;
-GLuint scene_list = 0;
-aiVector3D scene_min, scene_max, scene_center;
+#include "glsl.h"
 
 #define aisgl_min(x,y) (x<y?x:y)
 #define aisgl_max(x,y) (y>x?y:x)
 
-
 using namespace std;
+
+// the global Assimp scene object
+const aiScene* scene = NULL;
+GLuint scene_list = 0;
+aiVector3D scene_min,
+		   scene_max,
+		   scene_center;
+
 
 cwc::glShaderManager SM;
 cwc::glShader *shader;
@@ -30,8 +28,8 @@ cwc::glShader *shader;
 GLfloat posLX;
 GLfloat posLZ;
 
-
-void ejesCoordenada() {
+void ejesCoordenada()
+{
 	
 	glLineWidth(2.5);
 	glBegin(GL_LINES);
@@ -71,7 +69,8 @@ void ejesCoordenada() {
 	glLineWidth(1.0);
 }
 
-void changeViewport(int w, int h) {
+void changeViewport(int w, int h)
+{
 	
 	float aspectratio;
 
@@ -84,47 +83,77 @@ void changeViewport(int w, int h) {
    glLoadIdentity ();
    gluPerspective(30, (GLfloat) w/(GLfloat) h, 1.0, 200.0);
    glMatrixMode (GL_MODELVIEW);
-
 }
 
-void init_surface() {
-	
-	
-	
-}
-
-void init(){
-	
-   glEnable(GL_LIGHTING);
-   glEnable(GL_LIGHT0);
-   glEnable(GL_DEPTH_TEST);
+void init()
+{
+	glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHT0);
+	glEnable(GL_DEPTH_TEST);
    
-   shader = SM.loadfromFile("lambertPhong.vert","lambertPhong.frag"); // load (and compile, link) from file
-   	  if (shader==0) 
-			  std::cout << "Error Loading, compiling or linking shader\n";
+   	shader = SM.loadfromFile("lambertPhong.vert","lambertPhong.frag"); // load (and compile, link) from file
+   	if (shader==0) 
+		std::cout << "Error Loading, compiling or linking shader\n";
 
 	posLX = 10.0;
 	posLZ = 10.0;
-
-
 }
 
-
-
-void Keyboard(unsigned char key, int x, int y)
+void get_bounding_box_for_node (const aiNode* nd, aiVector3D* min, aiVector3D* max, aiMatrix4x4* trafo)
 {
+	aiMatrix4x4 prev;
+	unsigned int n = 0, t;
 
+	prev = *trafo;
+	aiMultiplyMatrix4(trafo,&nd->mTransformation);
 
-  switch (key)
-  {
-	case 27:             
-		exit (0);
-		break;
+	for (; n < nd->mNumMeshes; ++n) {
+		const aiMesh* mesh = scene->mMeshes[nd->mMeshes[n]];
+		for (t = 0; t < mesh->mNumVertices; ++t) {
 
-  }
-  
+			aiVector3D tmp = mesh->mVertices[t];
+			aiTransformVecByMatrix4(&tmp,trafo);
 
-  glutPostRedisplay();
+			min->x = aisgl_min(min->x,tmp.x);
+			min->y = aisgl_min(min->y,tmp.y);
+			min->z = aisgl_min(min->z,tmp.z);
+
+			max->x = aisgl_max(max->x,tmp.x);
+			max->y = aisgl_max(max->y,tmp.y);
+			max->z = aisgl_max(max->z,tmp.z);
+		}
+	}
+
+	for (n = 0; n < nd->mNumChildren; ++n) {
+		get_bounding_box_for_node(nd->mChildren[n],min,max,trafo);
+	}
+	*trafo = prev;
+}
+
+void get_bounding_box (aiVector3D* min, aiVector3D* max)
+{
+	aiMatrix4x4 trafo;
+	aiIdentityMatrix4(&trafo);
+	
+	min->x = min->y = min->z =  1e10f;
+	max->x = max->y = max->z = -1e10f;
+	get_bounding_box_for_node(scene->mRootNode,min,max,&trafo);
+}
+
+int loadasset (const char* path)
+{
+	// we are taking one of the postprocessing presets to avoid
+	// spelling out 20+ single postprocessing flags here.
+	scene = aiImportFile(path,aiProcessPreset_TargetRealtime_MaxQuality);
+
+	if (scene) {
+		get_bounding_box(&scene_min,&scene_max);
+		scene_center.x = (scene_min.x + scene_max.x) / 2.0f;
+		scene_center.y = (scene_min.y + scene_max.y) / 2.0f;
+		scene_center.z = (scene_min.z + scene_max.z) / 2.0f;
+		return 0;
+	}
+	return 1;
 }
 
 void recursive_render (const aiScene *sc, const aiNode* nd)
@@ -147,7 +176,7 @@ void recursive_render (const aiScene *sc, const aiNode* nd)
 		if(mesh->mNormals == NULL) {
 			glDisable(GL_LIGHTING);
 		} else {
-			glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHTING);
 		}
 
 		for (t = 0; t < mesh->mNumFaces; ++t) {
@@ -185,7 +214,14 @@ void recursive_render (const aiScene *sc, const aiNode* nd)
 	glPopMatrix();
 }
 
-void render(){
+/**
+ *
+ * -- Seccion Modiicable -- /
+ *
+ */
+
+void render()
+{
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -193,14 +229,14 @@ void render(){
     int loopX, loopZ;
 
 	glLoadIdentity ();                       
-	gluLookAt (10.0, 3.0, 5.0, 0.0, 1.5, 0.0, 0.0, 1.0, 0.0);
+	gluLookAt(10.0, 3.0, 5.0, 0.0, 1.5, 0.0, 0.0, 1.0, 0.0);
 	
 
 	// Luz y material
 	GLfloat mat_diffuse[] = { 1.0, 0.7, 0.5, 1.0 };
 	GLfloat mat_specular[] = { 1.0, 0.5, 0.5, 1.0 };
 	GLfloat mat_ambient[] = { 0.1, 0.1 ,0.1, 1.0 };
-	GLfloat mat_shininess[] = { 10.0 };
+	GLfloat mat_shininess[] = { 1.0 };
 	
 	glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient);
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
@@ -208,10 +244,9 @@ void render(){
 	glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
 	
 
-    GLfloat light_ambient[] = { 0.2, 0.2, 0.2, 1.0 };
-	GLfloat light_diffuse[] = { 0.8, 0.8, 0.8, 1.0 };
-	GLfloat light_specular[] = { 0.8, 0.8, 0.8, 1.0 };
-	//GLfloat light_position[] = { posLX, 10.0, posLZ, 1.0 };
+    GLfloat light_ambient[]  = { 0.2, 0.2, 0.2, 1.0    };
+	GLfloat light_diffuse[]  = { 0.8, 0.8, 0.8, 1.0    };
+	GLfloat light_specular[] = { 0.2, 0.2, 0.2, 0.8    };
 	GLfloat light_position[] = { 10.0, 10.0, 10.0, 1.0 };
 
 	glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
@@ -257,77 +292,30 @@ void render(){
 
 	if (shader) shader->end();
 
-	
-	
-
 	glDisable(GL_BLEND);
 	glDisable(GL_LINE_SMOOTH);
 
 	glutSwapBuffers();
 }
 
-void animacion(int value) {
-	
-	glutTimerFunc(10,animacion,1);
-    glutPostRedisplay();
-	
+void Keyboard(unsigned char key, int x, int y)
+{
+
+
+  switch (key)
+  {
+	case 27:             
+		exit (0);
+		break;
+
+  }
+  
+
+  glutPostRedisplay();
 }
 
-void get_bounding_box_for_node (const aiNode* nd, 	aiVector3D* min, 	aiVector3D* max, 	aiMatrix4x4* trafo){
-	aiMatrix4x4 prev;
-	unsigned int n = 0, t;
-
-	prev = *trafo;
-	aiMultiplyMatrix4(trafo,&nd->mTransformation);
-
-	for (; n < nd->mNumMeshes; ++n) {
-		const aiMesh* mesh = scene->mMeshes[nd->mMeshes[n]];
-		for (t = 0; t < mesh->mNumVertices; ++t) {
-
-			aiVector3D tmp = mesh->mVertices[t];
-			aiTransformVecByMatrix4(&tmp,trafo);
-
-			min->x = aisgl_min(min->x,tmp.x);
-			min->y = aisgl_min(min->y,tmp.y);
-			min->z = aisgl_min(min->z,tmp.z);
-
-			max->x = aisgl_max(max->x,tmp.x);
-			max->y = aisgl_max(max->y,tmp.y);
-			max->z = aisgl_max(max->z,tmp.z);
-		}
-	}
-
-	for (n = 0; n < nd->mNumChildren; ++n) {
-		get_bounding_box_for_node(nd->mChildren[n],min,max,trafo);
-	}
-	*trafo = prev;
-}
-
-void get_bounding_box (aiVector3D* min, aiVector3D* max){
-	aiMatrix4x4 trafo;
-	aiIdentityMatrix4(&trafo);
-	
-	min->x = min->y = min->z =  1e10f;
-	max->x = max->y = max->z = -1e10f;
-	get_bounding_box_for_node(scene->mRootNode,min,max,&trafo);
-}
-
-int loadasset (const char* path){
-	// we are taking one of the postprocessing presets to avoid
-	// spelling out 20+ single postprocessing flags here.
-	scene = aiImportFile(path,aiProcessPreset_TargetRealtime_MaxQuality);
-
-	if (scene) {
-		get_bounding_box(&scene_min,&scene_max);
-		scene_center.x = (scene_min.x + scene_max.x) / 2.0f;
-		scene_center.y = (scene_min.y + scene_max.y) / 2.0f;
-		scene_center.z = (scene_min.z + scene_max.z) / 2.0f;
-		return 0;
-	}
-	return 1;
-}
-
-int main (int argc, char** argv) {
+int main (int argc, char** argv)
+{
 
 	glutInit(&argc, argv);
 
@@ -335,11 +323,9 @@ int main (int argc, char** argv) {
 
 	glutInitWindowSize(960,540);
 
-	glutCreateWindow("Test Opengl");
-
+	glutCreateWindow("Shader - Opengl");
 
 	// Codigo para cargar la geometria usando ASSIMP
-
 	aiLogStream stream;
 	// get a handle to the predefined STDOUT log stream and attach
 	// it to the logging system. It remains active for all further
@@ -362,16 +348,12 @@ int main (int argc, char** argv) {
 		}
 	}
 
-
-
-
 	init ();
-
 	glutReshapeFunc(changeViewport);
+
 	glutDisplayFunc(render);
-	glutKeyboardFunc (Keyboard);
+	glutKeyboardFunc(Keyboard);
 	
 	glutMainLoop();
 	return 0;
-
 }
