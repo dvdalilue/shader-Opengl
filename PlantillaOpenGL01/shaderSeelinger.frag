@@ -42,14 +42,76 @@ float minnaert(float l)
     return tmp;
 }
 
-float fresnel(vec3 normal, vec3 light, float indexR)
+float distro(vec3 n, vec3 h, float m)
 {
-    return 0.0;
+    float ndoth,
+          beta,
+          tanbeta,
+          tanbeta_over_m,
+          D;
+
+    ndoth = dot(n, h);
+    beta = acos(ndoth);
+    tanbeta = tan(beta);
+    tanbeta_over_m = tanbeta/m;
+    D = exp(-(tanbeta_over_m*tanbeta_over_m));
+
+    D /= 4.0*m*m*pow(ndoth, 4.0);
+
+    return D;
 }
 
-float cookTorrance()
+float geom(vec3 n, vec3 h, vec3 l, vec3 v)
 {
-    return 0.0;
+    float ndoth,
+          ndotv,
+          ndotl,
+          vdoth,
+          masking,
+          shadowing;
+
+    ndoth = dot(n, h);
+    ndotv = dot(n, v);
+    ndotl = dot(n, l);
+    vdoth = dot(v, h);
+
+    masking   = (2.0*ndoth*ndotv)/vdoth;
+    shadowing = (2.0*ndoth*ndotl)/vdoth;
+
+    return min(1.0, min(masking, shadowing));
+}
+
+float fresnel(vec3 normal, vec3 light, float indexR)
+{
+   float R0 = pow((1.0 - indexR), 2.0);
+
+   R0 /= pow((1.0 + indexR), 2.0);
+
+   return R0 + (1.0 - R0)*pow(1.0 - dot(light, normal), 5.0);
+}
+
+float cookTorrance(float m)
+{
+    vec3 V, Nf, H, Ln;
+    float cook, D, G, vdotn;
+
+    Nf = normalize(N);
+    Ln = normalize(L.xyz);
+    V  = normalize(camDirection);
+
+    if (dot(Nn, V) < 0.0) { Nf = -V; }
+
+    H = normalize(Ln + V);
+    D = distro(Nf, H, m);
+    G = geom(Nf, H, Ln, V);
+
+    cook  = D*G;
+    vdotn = dot(V, Nf);
+
+    cook /= vdotn;
+    cook /= 3.1415;
+
+    return cook;
 }
 
 void main (void)  
