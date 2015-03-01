@@ -3,13 +3,9 @@ varying vec4 cMatDiff, cMatAmbt, cMatSpec;
 varying float cMatShin;
 varying vec3 camDirection;
 varying vec3 N, Nn;
-varying vec4 L; // vector de incidencia
+varying vec4 L;
 
-uniform float k;
-uniform float specular;
-
-//especular
-float seelinger() 
+float seelinger()
 {
    float tmp, rV;
    vec3 Ln, V;
@@ -81,7 +77,24 @@ float geom(vec3 n, vec3 h, vec3 l, vec3 v)
     return min(1.0, min(masking, shadowing));
 }
 
-float fresnel(vec3 normal, vec3 light, float indexR)
+float bias(float t, float a)
+{
+    return pow(t, ((-log(a))/log(2)));
+}
+
+
+float fresnel(vec3 normal, vec3 light, float bias, float eta, float Kfr)
+{
+    float ndotv, kr;
+
+    ndotv = abs(dot(normal, light));
+    kr = eta + (1.0 - eta)*pow(1.0-ndotv,5.0);
+    kr = Kfr*bias(kr, bias);
+
+    return kr;
+}
+
+float fresnel_hack(vec3 normal, vec3 light, float indexR)
 {
    float R0 = pow((1.0 - indexR), 2.0);
 
@@ -90,10 +103,10 @@ float fresnel(vec3 normal, vec3 light, float indexR)
    return R0 + (1.0 - R0)*pow(1.0 - dot(light, normal), 5.0);
 }
 
-float cookTorrance(float m)
+float cookTorrance(float m, float iR)
 {
     vec3 V, Nf, H, Ln;
-    float cook, D, G, vdotn;
+    float cook, D, G, F, vdotn;
 
     Nf = normalize(N);
     Ln = normalize(L.xyz);
@@ -104,6 +117,7 @@ float cookTorrance(float m)
     H = normalize(Ln + V);
     D = distro(Nf, H, m);
     G = geom(Nf, H, Ln, V);
+    F = fresnel_hack(Nf, normalize(L.xyz), iR);
 
     cook  = D*G;
     vdotn = dot(V, Nf);
@@ -117,14 +131,16 @@ float cookTorrance(float m)
 void main (void)  
 {
     vec4 cFinal;
-    float iDiff, iSpec;
+    float iDiff, iSpec, F;
 
-    iSpec = minnaert(k);
- 
     iDiff = seelinger();
+    //iSpec = minnaert(0.5f);
+    iSpec = cookTorrance(0.2, 0.5);
 
-    cFinal = (cLightAmbt*cMatAmbt) + iDiff*(cLightDiff*cMatDiff) + specular*iSpec*(cLightSpec*cMatSpec);
+    cFinal = (cLightAmbt*cMatAmbt) + iDiff*(cLightDiff*cMatDiff) + iSpec*(cLightSpec*cMatSpec);
+
+    F = fresnel(Nn, normalize(L.xyz), 0.8, 0.8, 1.5);
     cFinal.w = 1.0;
 
-    gl_FragColor = cFinal;
+    gl_FragColor = F*cFinal;
 }
