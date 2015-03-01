@@ -6,8 +6,10 @@ varying vec3 N, Nn;
 varying vec4 L; // vector de incidencia
 
 uniform float k;
+uniform float specular;
 
-float seelinger()
+//especular
+float seelinger() 
 {
    float tmp, rV;
    vec3 Ln, V;
@@ -55,10 +57,11 @@ void main (void)
     vec4 cFinal;
     float iDiff, iSpec;
 
+    iSpec = minnaert(k);
+ 
     iDiff = seelinger();
-    iSpec = minnaert(0.5);
 
-    cFinal = (cLightAmbt*cMatAmbt) + iDiff*(cLightDiff*cMatDiff) + iSpec*(cLightSpec*cMatSpec);
+    cFinal = (cLightAmbt*cMatAmbt) + iDiff*(cLightDiff*cMatDiff) + specular*iSpec*(cLightSpec*cMatSpec);
     cFinal.w = 1.0;
 
     gl_FragColor = cFinal;

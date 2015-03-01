@@ -28,6 +28,10 @@ cwc::glShader *shader;
 GLfloat posLX;
 GLfloat posLZ;
 
+GLuint ProgramObject;
+GLint locKMinnaert, locSpecular;
+GLfloat valorSpecular = 0.0f;
+
 void ejesCoordenada()
 {
 	
@@ -94,6 +98,26 @@ void init()
    	shader = SM.loadfromFile("shaderSeelinger.vert","shaderSeelinger.frag"); // load (and compile, link) from file
    	if (shader==0) 
 		std::cout << "Error Loading, compiling or linking shader\n";
+	else
+      {
+         ProgramObject = shader->GetProgramObject();
+		 locKMinnaert = glGetUniformLocation(ProgramObject, "k");
+		 locSpecular = glGetUniformLocation(ProgramObject, "specular");
+         
+		 if (locKMinnaert == -1){
+			 std::cout << "Warning: can't find uniform variable k!\n";
+		 }else{
+			//glUniform1f(locSpecular, 0.0f);
+		 };
+
+         if (locSpecular == -1){
+            std::cout << "Warning: can't find uniform variable specular!\n";
+		 }else{
+			//glUniform1f(locKMinnaert, 0.5f);
+		 }
+      }
+	
+	
 
 	posLX = 10.0;
 	posLZ = 10.0;
@@ -262,7 +286,9 @@ void render()
 	
 	glPushMatrix();
 
-	if (shader) shader->begin();
+	if (shader) {
+		shader->begin();
+	};
 
 
 	// COdigo para el mesh
@@ -298,19 +324,45 @@ void render()
 	glutSwapBuffers();
 }
 
+void imprimirEstado() {
+	cout << "\n\n\n\n\n\n\n\n";
+	cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+	cout << "Estado de las variables\n";
+	cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+	cout << "[x++/x--]\n\n";
+	cout << " Specular [1]: " <<  valorSpecular << "\n";
+	cout << "Color Verde luz [3]: " << "ALGO" << "\n";
+	cout << "Color Azul luz [4]: " <<  "ALGO" << "\n";
+//	cout << "Reflexion [c]: " << ("BOOL" ? "On" : "Off") <<"\n";
+//	cout << "Iluminacion [v]: " << (iluminacion ? "On" : "Off") << "\n";
+	cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~";
+}
+
+
 void Keyboard(unsigned char key, int x, int y)
 {
-
-
   switch (key)
   {
 	case 27:             
 		exit (0);
 		break;
+	case '1':
+		
+         ProgramObject = shader->GetProgramObject();
+		
+		 locSpecular = glGetUniformLocation(ProgramObject, "specular");
+         
+		glGetUniformfv(ProgramObject, locSpecular, &valorSpecular);
+		 cout << valorSpecular << "<----- VALOR";
+		if (valorSpecular  == 1.0) {
+			glUniform1f(locSpecular, 0.0f);
+		}else{
+		   glUniform1f(locSpecular, 1.0f);
+		}
 
+	break;
   }
-  
-
+  imprimirEstado();
   glutPostRedisplay();
 }
 
